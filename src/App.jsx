@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Play, Pause, Plus, Search, Music, Heart,
-  Sparkles, Filter, X, Flame, Radio, Bookmark
+  Sparkles, Filter, X, Flame, Radio, Bookmark, Lock, LogOut
 } from 'lucide-react';
 
 // Initialize Supabase Client (Replace with your own Supabase project URL and Anon Key when ready!)
@@ -64,12 +64,20 @@ export default function App() {
   const [selectedFFO, setSelectedFFO] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activePostDetail, setActivePostDetail] = useState(null);
+  
+  // Owner Authentication & Modals
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const OWNER_PASSCODE = 'ComebackKid2003++'; // Change this to your preferred passcode!
+
   const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
   const [audioObj, setAudioObj] = useState(null);
   const [userLikes, setUserLikes] = useState({});
   const [userBookmarks, setUserBookmarks] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
+  
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [newPost, setNewPost] = useState({
@@ -87,7 +95,6 @@ export default function App() {
           .order('created_at', { ascending: false });
         
         if (data && data.length > 0) {
-          // Map database column names if needed
           const formatted = data.map(item => ({
             id: item.id || `post-${Math.random()}`,
             title: item.title,
@@ -97,7 +104,7 @@ export default function App() {
             genres: item.genres || ['Emo'],
             ffo: item.ffo || [],
             writeup: item.writeup || '',
-            curator: item.curator || 'anticasper_user',
+            curator: item.curator || 'anticasper',
             createdAt: 'Recently',
             likes: item.likes || 1,
             links: {
@@ -111,7 +118,7 @@ export default function App() {
           setPosts(formatted);
         }
       } catch (err) {
-        console.log("Using fallback local posts while Supabase is unconfigured.");
+        console.log("Using local fallback posts while Supabase is unconfigured.");
       }
     }
     fetchSupabasePosts();
@@ -126,6 +133,24 @@ export default function App() {
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleAdminLoginSubmit = (e) => {
+    e.preventDefault();
+    if (adminPasswordInput === OWNER_PASSCODE) {
+      setIsOwnerAuthenticated(true);
+      setIsLoginModalOpen(false);
+      setAdminPasswordInput('');
+      setIsShareModalOpen(true);
+      showToast('Welcome back, owner!');
+    } else {
+      showToast('Incorrect owner passcode');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsOwnerAuthenticated(false);
+    showToast('Logged out of owner mode');
   };
 
   const togglePlayTrack = (post, e) => {
@@ -192,14 +217,13 @@ export default function App() {
       genres: newPost.genres.length ? newPost.genres : ['Emo'],
       ffo: newPost.ffoInput.split(',').map(s => s.trim()).filter(Boolean),
       writeup: newPost.writeup || 'No writeup provided.',
-      curator: 'you_skater',
+      curator: 'anticasper',
       apple_link: newPost.apple || '',
       spotify_link: newPost.spotify || ''
     };
 
     try {
-      // Attempt to save to Supabase
-      const { data, error } = await supabase.from('posts').insert([newDbRow]).select();
+      const { error } = await supabase.from('posts').insert([newDbRow]).select();
       if (error) throw error;
     } catch (err) {
       console.log("Saved locally (Supabase keys not yet plugged in)");
@@ -223,7 +247,7 @@ export default function App() {
 
     setPosts([created, ...posts]);
     setIsShareModalOpen(false);
-    showToast('Published to ANTICASPER BLOG!');
+    showToast('Published successfully!');
   };
 
   const filteredPosts = useMemo(() => {
@@ -247,16 +271,18 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <header className="border-b-2 border-zinc-800 pb-6 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <span className="bg-[#e2ff00] text-black text-xs font-mono font-black px-2 py-0.5 uppercase">VER. 2.5 // SUPABASE CMS CONNECTED</span>
+            <span className="bg-[#e2ff00] text-black text-xs font-mono font-black px-2 py-0.5 uppercase">VER. 2.6 // SECURE OWNER MODE</span>
             <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter mt-1 font-mono text-white">
               ANTICASPER <span className="text-[#e2ff00]">BLOG</span>
             </h1>
             <p className="text-zinc-400 text-sm mt-1">Curated underground music, album deep-dives, and cross-platform streaming links.</p>
           </div>
-          <button onClick={() => setIsShareModalOpen(true)} className="bg-[#e2ff00] hover:bg-yellow-300 text-black font-mono font-bold px-5 py-3 text-sm uppercase border-2 border-black flex items-center gap-2 cursor-pointer shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)]">
-            <Plus size={18} strokeWidth={3} />
-            <span>SHARE MUSIC + LINK</span>
-          </button>
+          {isOwnerAuthenticated && (
+            <button onClick={() => setIsShareModalOpen(true)} className="bg-[#e2ff00] text-black font-mono font-bold px-4 py-2.5 text-xs uppercase border-2 border-black flex items-center gap-2 cursor-pointer">
+              <Plus size={16} strokeWidth={3} />
+              <span>NEW POST DASHBOARD</span>
+            </button>
+          )}
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -366,6 +392,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Detail Modal */}
       {activePostDetail && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="bg-[#16181e] border-2 border-[#e2ff00] max-w-2xl w-full p-6 relative font-mono">
@@ -382,11 +409,26 @@ export default function App() {
         </div>
       )}
 
+      {/* Owner Passcode Modal */}
+      {isLoginModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+          <div className="bg-[#16181e] border-2 border-[#e2ff00] max-w-sm w-full p-6 relative font-mono text-zinc-200">
+            <button onClick={() => setIsLoginModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
+            <h3 className="text-lg font-bold uppercase text-white mb-3 flex items-center gap-2"><Lock size={18} className="text-[#e2ff00]" /> OWNER LOGIN</h3>
+            <form onSubmit={handleAdminLoginSubmit} className="space-y-3">
+              <input type="password" autoFocus placeholder="Enter passcode..." value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} className="w-full bg-[#0d0e12] border border-zinc-700 text-white p-2.5 text-sm" />
+              <button type="submit" className="w-full bg-[#e2ff00] text-black font-bold py-2 text-xs uppercase">Unlock Admin</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Share / Publish Modal */}
       {isShareModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="bg-[#16181e] border-2 border-[#e2ff00] max-w-xl w-full p-6 relative font-mono text-zinc-200">
             <button onClick={() => setIsShareModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
-            <h2 className="text-xl font-black uppercase text-white mb-4 flex items-center gap-2"><Radio size={20} className="text-[#e2ff00]" /> ADD NEW POST TO SUPABASE</h2>
+            <h2 className="text-xl font-black uppercase text-white mb-4 flex items-center gap-2"><Radio size={20} className="text-[#e2ff00]" /> PUBLISH NEW POST</h2>
             <div className="bg-[#0d0e12] border border-zinc-800 p-3 mb-4 flex gap-2">
               <input type="text" value={importUrl} onChange={(e) => setImportUrl(e.target.value)} placeholder="Paste link or album name..." className="flex-1 bg-[#16181e] border border-zinc-700 text-white px-3 py-2 text-xs" />
               <button type="button" onClick={handleSimulatedImport} className="bg-zinc-800 hover:bg-[#e2ff00] hover:text-black text-white px-3 py-2 text-xs font-bold uppercase flex items-center gap-1">
@@ -399,17 +441,30 @@ export default function App() {
                 <input type="text" required placeholder="Artist *" value={newPost.artist} onChange={(e) => setNewPost({ ...newPost, artist: e.target.value })} className="bg-[#0d0e12] border border-zinc-800 text-white p-2.5" />
               </div>
               <textarea rows={3} placeholder="Writeup..." value={newPost.writeup} onChange={(e) => setNewPost({ ...newPost, writeup: e.target.value })} className="w-full bg-[#0d0e12] border border-zinc-800 text-white p-2.5" />
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsShareModalOpen(false)} className="px-4 py-2 border border-zinc-700 uppercase font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-[#e2ff00] text-black font-bold uppercase">Publish to DB</button>
+              <div className="flex justify-between items-center pt-2">
+                <button type="button" onClick={handleLogout} className="text-rose-400 text-xs flex items-center gap-1"><LogOut size={12} /> Lock Admin</button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setIsShareModalOpen(false)} className="px-4 py-2 border border-zinc-700 uppercase font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-[#e2ff00] text-black font-bold uppercase">Publish</button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      <footer className="border-t-2 border-zinc-800 mt-16 py-8 text-center font-mono text-xs text-zinc-500">
-        ANTICASPER BLOG // DIY EMO & SKATER MUSIC ARCHIVE • 2026
+      {/* Footer with Owner Login Door */}
+      <footer className="border-t-2 border-zinc-800 mt-16 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between font-mono text-xs text-zinc-500 gap-4">
+        <div>ANTICASPER BLOG // DIY EMO & SKATER MUSIC ARCHIVE • 2026</div>
+        <div className="flex items-center gap-4">
+          {isOwnerAuthenticated ? (
+            <button onClick={() => setIsShareModalOpen(true)} className="text-[#e2ff00] hover:underline font-bold">Open Publisher Dashboard</button>
+          ) : (
+            <button onClick={() => setIsLoginModalOpen(true)} className="text-zinc-600 hover:text-zinc-300 flex items-center gap-1 transition-colors">
+              <Lock size={12} /> Owner Login
+            </button>
+          )}
+        </div>
       </footer>
     </div>
   );
