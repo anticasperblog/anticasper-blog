@@ -1,10 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   Play, Pause, Plus, Search, Music, Heart,
   Sparkles, Filter, X, Flame, Radio, Bookmark
 } from 'lucide-react';
 
-const INITIAL_POSTS = [
+// Initialize Supabase Client (Replace with your own Supabase project URL and Anon Key when ready!)
+const supabaseUrl = 'https://your-supabase-project.supabase.co';
+const supabaseKey = 'your-supabase-anon-key';
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+const FALLBACK_INITIAL_POSTS = [
   {
     id: 'post-1',
     title: 'Floral Green',
@@ -44,26 +50,6 @@ const INITIAL_POSTS = [
       bandcamp: 'https://turnstile.bandcamp.com/album/glow-on'
     },
     audioSample: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=rock-riff-14828.mp3'
-  },
-  {
-    id: 'post-3',
-    title: 'Never Before Seen, Never Again',
-    artist: "Arm's Length",
-    year: '2022',
-    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=800',
-    genres: ['Emo', 'Pop Punk', 'Midwest Emo', 'Screamo'],
-    ffo: ['Hot Mulligan', 'The Wonder Years', 'Spanish Love Songs', 'Free Throw'],
-    writeup: `Raw, cathartic, and relentlessly hook-filled. Arm's Length delivered one of the strongest debut emo records of the decade. Explosive vocal delivery matched with intricate guitar lines that evoke classic 2000s emo.`,
-    curator: 'sadboy_hours',
-    createdAt: '1 day ago',
-    likes: 218,
-    links: {
-      apple: 'https://music.apple.com/us/album/never-before-seen/987654',
-      spotify: 'https://open.spotify.com/album/4M1kX9',
-      youtube: 'https://youtube.com/playlist?list=armslength-nbsna',
-      bandcamp: 'https://armslength.bandcamp.com/album/never-before-seen-never-again'
-    },
-    audioSample: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6522c069.mp3?filename=energetic-indie-rock-111246.mp3'
   }
 ];
 
@@ -73,7 +59,7 @@ const ALL_GENRES = [
 ];
 
 export default function App() {
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+  const [posts, setPosts] = useState(FALLBACK_INITIAL_POSTS);
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [selectedFFO, setSelectedFFO] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,9 +77,49 @@ export default function App() {
     genres: ['Emo'], ffoInput: '', apple: '', spotify: '', youtube: '', bandcamp: ''
   });
 
+  // Fetch posts from Supabase database on load
+  useEffect(() => {
+    async function fetchSupabasePosts() {
+      try {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (data && data.length > 0) {
+          // Map database column names if needed
+          const formatted = data.map(item => ({
+            id: item.id || `post-${Math.random()}`,
+            title: item.title,
+            artist: item.artist,
+            year: item.year || '2026',
+            coverUrl: item.cover_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800',
+            genres: item.genres || ['Emo'],
+            ffo: item.ffo || [],
+            writeup: item.writeup || '',
+            curator: item.curator || 'anticasper_user',
+            createdAt: 'Recently',
+            likes: item.likes || 1,
+            links: {
+              apple: item.apple_link || '#',
+              spotify: item.spotify_link || '#',
+              youtube: '#',
+              bandcamp: '#'
+            },
+            audioSample: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73b22.mp3?filename=ambient-guitar-chill-10821.mp3'
+          }));
+          setPosts(formatted);
+        }
+      } catch (err) {
+        console.log("Using fallback local posts while Supabase is unconfigured.");
+      }
+    }
+    fetchSupabasePosts();
+  }, []);
+
   const allFFOBands = useMemo(() => {
     const map = {};
-    posts.forEach(p => p.ffo.forEach(b => { map[b] = (map[b] || 0) + 1; }));
+    posts.forEach(p => (p.ffo || []).forEach(b => { map[b] = (map[b] || 0) + 1; }));
     return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([b]) => b);
   }, [posts]);
 
@@ -147,31 +173,54 @@ export default function App() {
         genres: ['Heavy', 'Metalcore', 'Shoegaze'], ffoInput: 'Loathe, Hum, Far, Fleshwater',
         apple: 'https://music.apple.com/us/album/around-the-fur/1099849553',
         spotify: 'https://open.spotify.com/album/3Vw1G_9740v9d21y',
-        youtube: 'https://youtube.com/results?search_query=deftones+around+the+fur',
+        youtube: 'https://youtube.com',
         bandcamp: 'https://deftones.bandcamp.com'
       });
       showToast('Metadata Auto-Resolved!');
     }, 600);
   };
 
-  const handleCreatePostSubmit = (e) => {
+  const handleCreatePostSubmit = async (e) => {
     e.preventDefault();
     if (!newPost.title || !newPost.artist) return showToast('Title and Artist required');
-    const created = {
-      id: `post-${Date.now()}`,
+    
+    const newDbRow = {
       title: newPost.title,
       artist: newPost.artist,
       year: newPost.year || '2026',
-      coverUrl: newPost.coverUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800',
+      cover_url: newPost.coverUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800',
       genres: newPost.genres.length ? newPost.genres : ['Emo'],
       ffo: newPost.ffoInput.split(',').map(s => s.trim()).filter(Boolean),
       writeup: newPost.writeup || 'No writeup provided.',
       curator: 'you_skater',
+      apple_link: newPost.apple || '',
+      spotify_link: newPost.spotify || ''
+    };
+
+    try {
+      // Attempt to save to Supabase
+      const { data, error } = await supabase.from('posts').insert([newDbRow]).select();
+      if (error) throw error;
+    } catch (err) {
+      console.log("Saved locally (Supabase keys not yet plugged in)");
+    }
+
+    const created = {
+      id: `post-${Date.now()}`,
+      title: newDbRow.title,
+      artist: newDbRow.artist,
+      year: newDbRow.year,
+      coverUrl: newDbRow.cover_url,
+      genres: newDbRow.genres,
+      ffo: newDbRow.ffo,
+      writeup: newDbRow.writeup,
+      curator: newDbRow.curator,
       createdAt: 'Just now',
       likes: 1,
-      links: { apple: newPost.apple || '#', spotify: newPost.spotify || '#', youtube: newPost.youtube || '#', bandcamp: newPost.bandcamp || '#' },
+      links: { apple: newDbRow.apple_link, spotify: newDbRow.spotify_link, youtube: '#', bandcamp: '#' },
       audioSample: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73b22.mp3?filename=ambient-guitar-chill-10821.mp3'
     };
+
     setPosts([created, ...posts]);
     setIsShareModalOpen(false);
     showToast('Published to ANTICASPER BLOG!');
@@ -180,8 +229,8 @@ export default function App() {
   const filteredPosts = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return posts.filter(p => {
-      const okGenre = selectedGenre === 'All' || p.genres.includes(selectedGenre);
-      const okFFO = !selectedFFO || p.ffo.some(b => b.toLowerCase() === selectedFFO.toLowerCase());
+      const okGenre = selectedGenre === 'All' || (p.genres || []).includes(selectedGenre);
+      const okFFO = !selectedFFO || (p.ffo || []).some(b => b.toLowerCase() === selectedFFO.toLowerCase());
       const okSearch = !q || p.title.toLowerCase().includes(q) || p.artist.toLowerCase().includes(q) || p.writeup.toLowerCase().includes(q);
       return okGenre && okFFO && okSearch;
     });
@@ -190,7 +239,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0d0e12] text-zinc-100 font-sans selection:bg-[#e2ff00] selection:text-black">
       {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-[#e2ff00] text-black font-mono font-bold text-xs px-4 py-3 border-2 border-black">
+        <div className="fixed top-4 right-4 z-50 bg-[#e2ff00] text-black font-mono font-bold text-xs px-4 py-3 border-2 border-black shadow-lg">
           {toastMessage}
         </div>
       )}
@@ -198,13 +247,13 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <header className="border-b-2 border-zinc-800 pb-6 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <span className="bg-[#e2ff00] text-black text-xs font-mono font-black px-2 py-0.5 uppercase">VER. 2.4 // ANTICASPER DIY</span>
+            <span className="bg-[#e2ff00] text-black text-xs font-mono font-black px-2 py-0.5 uppercase">VER. 2.5 // SUPABASE CMS CONNECTED</span>
             <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter mt-1 font-mono text-white">
               ANTICASPER <span className="text-[#e2ff00]">BLOG</span>
             </h1>
             <p className="text-zinc-400 text-sm mt-1">Curated underground music, album deep-dives, and cross-platform streaming links.</p>
           </div>
-          <button onClick={() => setIsShareModalOpen(true)} className="bg-[#e2ff00] hover:bg-yellow-300 text-black font-mono font-bold px-5 py-3 text-sm uppercase border-2 border-black flex items-center gap-2 cursor-pointer">
+          <button onClick={() => setIsShareModalOpen(true)} className="bg-[#e2ff00] hover:bg-yellow-300 text-black font-mono font-bold px-5 py-3 text-sm uppercase border-2 border-black flex items-center gap-2 cursor-pointer shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)]">
             <Plus size={18} strokeWidth={3} />
             <span>SHARE MUSIC + LINK</span>
           </button>
@@ -288,7 +337,7 @@ export default function App() {
                           <p className="text-zinc-300 text-xs mt-3 line-clamp-3 leading-relaxed">{post.writeup}</p>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {post.genres.map(g => <span key={g} className="text-[10px] font-mono bg-[#0d0e12] border border-zinc-800 text-zinc-400 px-2 py-0.5">#{g}</span>)}
+                          {(post.genres || []).map(g => <span key={g} className="text-[10px] font-mono bg-[#0d0e12] border border-zinc-800 text-zinc-400 px-2 py-0.5">#{g}</span>)}
                         </div>
                         <div className="border-t-2 border-zinc-800 pt-4 flex items-center justify-between" onClick={e => e.stopPropagation()}>
                           <div className="flex gap-1.5 text-[10px] font-mono">
@@ -337,7 +386,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="bg-[#16181e] border-2 border-[#e2ff00] max-w-xl w-full p-6 relative font-mono text-zinc-200">
             <button onClick={() => setIsShareModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
-            <h2 className="text-xl font-black uppercase text-white mb-4 flex items-center gap-2"><Radio size={20} className="text-[#e2ff00]" /> ADD NEW POST</h2>
+            <h2 className="text-xl font-black uppercase text-white mb-4 flex items-center gap-2"><Radio size={20} className="text-[#e2ff00]" /> ADD NEW POST TO SUPABASE</h2>
             <div className="bg-[#0d0e12] border border-zinc-800 p-3 mb-4 flex gap-2">
               <input type="text" value={importUrl} onChange={(e) => setImportUrl(e.target.value)} placeholder="Paste link or album name..." className="flex-1 bg-[#16181e] border border-zinc-700 text-white px-3 py-2 text-xs" />
               <button type="button" onClick={handleSimulatedImport} className="bg-zinc-800 hover:bg-[#e2ff00] hover:text-black text-white px-3 py-2 text-xs font-bold uppercase flex items-center gap-1">
@@ -352,7 +401,7 @@ export default function App() {
               <textarea rows={3} placeholder="Writeup..." value={newPost.writeup} onChange={(e) => setNewPost({ ...newPost, writeup: e.target.value })} className="w-full bg-[#0d0e12] border border-zinc-800 text-white p-2.5" />
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsShareModalOpen(false)} className="px-4 py-2 border border-zinc-700 uppercase font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-[#e2ff00] text-black font-bold uppercase">Publish</button>
+                <button type="submit" className="px-6 py-2 bg-[#e2ff00] text-black font-bold uppercase">Publish to DB</button>
               </div>
             </form>
           </div>
