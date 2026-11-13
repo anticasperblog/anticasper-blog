@@ -70,7 +70,7 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const OWNER_PASSCODE = 'anticasper2026';
+  const OWNER_PASSCODE = 'ComebackKid2003++';
 
   const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
   const [audioObj, setAudioObj] = useState(null);
