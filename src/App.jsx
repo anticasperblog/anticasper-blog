@@ -59,11 +59,11 @@ const ALL_GENRES = [
 ];
 
 export default function App() {
-const [posts, setPosts] = useState<any[]>(FALLBACK_INITIAL_POSTS);
+const [posts, setPosts] = useState(FALLBACK_INITIAL_POSTS);
 const [selectedGenre, setSelectedGenre] = useState('All');
-const [selectedFFO, setSelectedFFO] = useState<string | null>(null);
+const [selectedFFO, setSelectedFFO] = useState(null);
 const [searchQuery, setSearchQuery] = useState('');
-const [activePostDetail, setActivePostDetail] = useState<any | null>(null);
+const [activePostDetail, setActivePostDetail] = useState(null);
 
 // Owner Authentication & Modals
 const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
@@ -72,11 +72,11 @@ const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 const [adminPasswordInput, setAdminPasswordInput] = useState('');
 const OWNER_PASSCODE = 'anticasper2026';
 
-const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
-const [audioObj, setAudioObj] = useState<HTMLAudioElement | null>(null);
-const [userLikes, setUserLikes] = useState<Record<string, boolean>>({});
-const [userBookmarks, setUserBookmarks] = useState<Record<string, boolean>>({});
-const [toastMessage, setToastMessage] = useState<string | null>(null);
+const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
+const [audioObj, setAudioObj] = useState(null);
+const [userLikes, setUserLikes] = useState({});
+const [userBookmarks, setUserBookmarks] = useState({});
+const [toastMessage, setToastMessage] = useState(null);
 
 const [importUrl, setImportUrl] = useState('');
 const [isImporting, setIsImporting] = useState(false);
@@ -94,7 +94,7 @@ const { data } = await supabase
 .order('created_at', { ascending: false });
 
     if (data && data.length > 0) {
-      const formatted = data.map((item: any) => ({
+      const formatted = data.map((item) => ({
         id: item.id || "post-" + Math.random(),
         title: item.title,
         artist: item.artist,
@@ -126,17 +126,17 @@ fetchSupabasePosts();
 }, []);
 
 const allFFOBands = useMemo(() => {
-const map: Record<string, number> = {};
-posts.forEach(p => (p.ffo || []).forEach((b: string) => { map[b] = (map[b] || 0) + 1; }));
+const map = {};
+posts.forEach(p => (p.ffo || []).forEach((b) => { map[b] = (map[b] || 0) + 1; }));
 return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([b]) => b);
 }, [posts]);
 
-const showToast = (msg: string) => {
+const showToast = (msg) => {
 setToastMessage(msg);
 setTimeout(() => setToastMessage(null), 3000);
 };
 
-const handleAdminLoginSubmit = (e: React.FormEvent) => {
+const handleAdminLoginSubmit = (e) => {
 e.preventDefault();
 if (adminPasswordInput === OWNER_PASSCODE) {
 setIsOwnerAuthenticated(true);
@@ -154,7 +154,7 @@ setIsOwnerAuthenticated(false);
 showToast('Logged out of owner mode');
 };
 
-const togglePlayTrack = (post: any, e?: React.MouseEvent) => {
+const togglePlayTrack = (post, e) => {
 if (e) e.stopPropagation();
 if (currentlyPlaying === post.id) {
 if (audioObj) audioObj.pause();
@@ -169,7 +169,7 @@ audio.onended = () => setCurrentlyPlaying(null);
 }
 };
 
-const handleLike = (id: string, e?: React.MouseEvent) => {
+const handleLike = (id, e) => {
 if (e) e.stopPropagation();
 setUserLikes(prev => {
 const liked = !!prev[id];
@@ -178,7 +178,7 @@ return { ...prev, [id]: !liked };
 });
 };
 
-const handleBookmark = (id: string, e?: React.MouseEvent) => {
+const handleBookmark = (id, e) => {
 if (e) e.stopPropagation();
 setUserBookmarks(prev => {
 const saved = !!prev[id];
@@ -206,7 +206,7 @@ showToast('Metadata Auto-Resolved!');
 }, 600);
 };
 
-const handleCreatePostSubmit = async (e: React.FormEvent) => {
+const handleCreatePostSubmit = async (e) => {
 e.preventDefault();
 if (!newPost.title || !newPost.artist) return showToast('Title and Artist required');
 
@@ -257,7 +257,7 @@ const filteredPosts = useMemo(() => {
 const q = searchQuery.toLowerCase();
 return posts.filter(p => {
 const okGenre = selectedGenre === 'All' || (p.genres || []).includes(selectedGenre);
-const okFFO = !selectedFFO || (p.ffo || []).some((b: string) => b.toLowerCase() === selectedFFO.toLowerCase());
+const okFFO = !selectedFFO || (p.ffo || []).some((b) => b.toLowerCase() === selectedFFO.toLowerCase());
 const okSearch = !q || p.title.toLowerCase().includes(q) || p.artist.toLowerCase().includes(q) || p.writeup.toLowerCase().includes(q);
 return okGenre && okFFO && okSearch;
 });
@@ -366,7 +366,7 @@ return (
                       <p className="text-zinc-300 text-xs mt-3 line-clamp-3 leading-relaxed">{post.writeup}</p>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {(post.genres || []).map((g: string) => <span key={g} className="text-[10px] font-mono bg-[#0d0e12] border border-zinc-800 text-zinc-400 px-2 py-0.5">#{g}</span>)}
+                      {(post.genres || []).map((g) => <span key={g} className="text-[10px] font-mono bg-[#0d0e12] border border-zinc-800 text-zinc-400 px-2 py-0.5">#{g}</span>)}
                     </div>
                     <div className="border-t-2 border-zinc-800 pt-4 flex items-center justify-between" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1.5 text-[10px] font-mono">
